@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZcScriptz - Share Script</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .form-section, .script-section, .search-section {
+            background: #fff;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .form-section label, .search-section label {
+            font-weight: bold;
+        }
+        .form-section input, .form-section textarea, .form-section select, .search-section input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .form-section button, .search-section button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .form-section button:hover, .search-section button:hover {
+            background-color: #218838;
+        }
+        .script-section {
+            background-color: #f9f9f9;
+        }
+        .script-options {
+            margin-top: 15px;
+        }
+        .script-options button {
+            margin-right: 10px;
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .script-options button.delete-btn {
+            background-color: #dc3545;
+        }
+        .script-options button:hover {
+            opacity: 0.9;
+        }
+        .private-label {
+            display: inline-block;
+            padding: 4px 8px;
+            background-color: #ffc107;
+            color: #fff;
+            border-radius: 4px;
+        }
+        .public-label {
+            display: inline-block;
+            padding: 4px 8px;
+            background-color: #28a745;
+            color: #fff;
+            border-radius: 4px;
+        }
+        .alert {
+            display: none;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>ZcScriptz - Share Script</h1>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <h2>Search Scripts</h2>
+            <input type="text" id="searchInput" placeholder="Search by script title...">
+            <button onclick="searchScripts()">Search</button>
+        </div>
+
+        <!-- Form Section for submitting a new script -->
+        <div class="form-section">
+            <h2>Paste your Script</h2>
+            <form id="scriptForm">
+                <label for="scriptTitle">Title</label>
+                <input type="text" id="scriptTitle" name="scriptTitle" placeholder="Enter your script title" required>
+
+                <label for="scriptContent">Script Content</label>
+                <textarea id="scriptContent" name="scriptContent" rows="10" placeholder="Paste your script here" required></textarea>
+
+                <label for="password">Password (to delete script)</label>
+                <input type="password" id="password" placeholder="Set a password for deleting this script" required>
+
+                <label for="visibility">Visibility</label>
+                <select id="visibility" name="visibility">
+                    <option value="public">Public</option>
+                    <option value="private">Private</option>
+                </select>
+
+                <button type="submit">Publish Script</button>
+            </form>
+        </div>
+
+        <!-- Script Section (to show published scripts) -->
+        <div class="script-section">
+            <h2>Published Scripts</h2>
+            <div id="scriptsContainer"></div>
+        </div>
+
+        <!-- Alert when trying to delete someone else's script -->
+        <div id="deleteAlert" class="alert">
+            Incorrect password. You cannot delete this script.
+        </div>
+    </div>
+
+    <script>
+        // Store scripts in localStorage
+        const scripts = JSON.parse(localStorage.getItem('scripts')) || [];
+
+        // Handle form submission for adding a new script
+        document.getElementById('scriptForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const title = document.getElementById('scriptTitle').value;
+            const content = document.getElementById('scriptContent').value;
+            const visibility = document.getElementById('visibility').value;
+            const password = document.getElementById('password').value;
+
+            const newScript = {
+                title: title,
+                content: content,
+                visibility: visibility,
+                password: password
+            };
+
+            // Add the new script to the list and save it
+            scripts.push(newScript);
+            localStorage.setItem('scripts', JSON.stringify(scripts));
+
+            // Render the updated script list
+            renderScripts();
+        });
+
+        // Function to render the scripts
+        function renderScripts(filter = '') {
+            const scriptsContainer = document.getElementById('scriptsContainer');
+            scriptsContainer.innerHTML = '';
+
+            scripts
+                .filter(script => script.title.toLowerCase().includes(filter.toLowerCase())) // Filter scripts by search term
+                .forEach((script, index) => {
+                    const scriptDiv = document.createElement('div');
+                    scriptDiv.classList.add('script');
+
+                    // Create script title and content
+                    scriptDiv.innerHTML = `
+                        <h3>${script.title}</h3>
+                        <span class="${script.visibility === 'public' ? 'public-label' : 'private-label'}">${script.visibility}</span>
+                        <pre>${script.content}</pre>
+                        <div class="script-options">
+                            <button onclick="copyScript('${script.content}')">Copy</button>
+                            <button onclick="downloadScript('${script.title}', '${script.content}')">Download</button>
+                            <button onclick="editScript(${index})">Edit</button>
+                            <button onclick="viewRaw('${script.content}')">View Raw</button>
+                            <button class="delete-btn" onclick="deleteScript(${index})">Delete</button>
+                        </div>
+                    `;
+                    scriptsContainer.appendChild(scriptDiv);
+                });
+        }
+
+        // Copy script to clipboard
+        function copyScript(content) {
+            navigator.clipboard.writeText(content).then(() => {
+                alert('Script copied to clipboard!');
+            });
+        }
+
+        // Download script as a file
+        function downloadScript(title, content) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${title}.txt`;
+            link.click();
+        }
+
+        // Edit script
+        function editScript(index) {
+            const script = scripts[index];
+            const newContent = prompt("Edit your script:", script.content);
+            if (newContent !== null) {
+                script.content = newContent;
+                localStorage.setItem('scripts', JSON.stringify(scripts));
+                renderScripts();
+            }
+        }
+
+        // View raw script
+        function viewRaw(content) {
+            const rawWindow = window.open('', '_blank');
+            rawWindow.document.write(`<pre>${content}</pre>`);
+        }
+
+        // Delete a script
+        function deleteScript(index) {
+            const password = prompt("Enter the password to delete this script:");
+            if (scripts[index].password === password) {
+                scripts.splice(index, 1);
+                localStorage.setItem('scripts', JSON.stringify(scripts));
+                renderScripts();
+            } else {
+                document.getElementById('deleteAlert').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('deleteAlert').style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Search scripts
+        function searchScripts() {
+            const searchTerm = document.getElementById('searchInput').value;
+            renderScripts(searchTerm);
+        }
+
+        // Initialize script display on page load
+        renderScripts();
+
+    </script>
+
+</body>
+</html>
